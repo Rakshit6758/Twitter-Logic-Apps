@@ -1,0 +1,123 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "workflows_Twitter_Logic_App_name": {
+            "defaultValue": "Twitter-Logic-App",
+            "type": "String"
+        },
+        "connections_outlook_externalid": {
+            "defaultValue": "/subscriptions/6144f08b-cd62-4457-8781-7f023c60ba00/resourceGroups/Logic-App-Twitter/providers/Microsoft.Web/connections/outlook",
+            "type": "String"
+        },
+        "connections_twitter_1_externalid": {
+            "defaultValue": "/subscriptions/6144f08b-cd62-4457-8781-7f023c60ba00/resourceGroups/Logic-App-Twitter/providers/Microsoft.Web/connections/twitter-1",
+            "type": "String"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "[parameters('workflows_Twitter_Logic_App_name')]",
+            "location": "southindia",
+            "tags": {
+                "Name": "Twitter "
+            },
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "When_a_new_tweet_appears": {
+                            "recurrence": {
+                                "frequency": "Second",
+                                "interval": 20
+                            },
+                            "splitOn": "@triggerBody()?['value']",
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['twitter']['connectionId']"
+                                    }
+                                },
+                                "method": "get",
+                                "path": "/onnewtweet",
+                                "queries": {
+                                    "searchQuery": "#100DaysOfCode"
+                                }
+                            }
+                        }
+                    },
+                    "actions": {
+                        "Get_user": {
+                            "runAfter": {},
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['twitter']['connectionId']"
+                                    }
+                                },
+                                "method": "get",
+                                "path": "/user",
+                                "queries": {
+                                    "userName": "@{triggerBody()['TweetedBy']}"
+                                }
+                            }
+                        },
+                        "Send_email": {
+                            "runAfter": {
+                                "Get_user": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "body": {
+                                    "Body": "Tweet: @{triggerBody()['TweetText']}\n----\nTweeted at: @{triggerBody()?['CreatedAt']}\nhttps://twitter.com/@{triggerBody()['TweetedBy']}/status/@{triggerBody()?['TweetId']}\n---\nTweeted by: @{body('Get_user')['UserName']}\nDescription: @{triggerBody()['UserDetails']['Description']}\nFollowers: @{body('Get_user')?['FollowersCount']}\nFriends: @{body('Get_user')?['FriendsCount']}",
+                                    "Cc": "rajatkp11@gmail.com; vanshikaaa1009@gmail.com",
+                                    "Subject": "New tweet from @{body('Get_user')['FullName']}",
+                                    "To": "rakshitkapoor2345@gmail.com"
+                                },
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['outlook']['connectionId']"
+                                    }
+                                },
+                                "method": "post",
+                                "path": "/Mail"
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "outlook": {
+                                "connectionId": "[parameters('connections_outlook_externalid')]",
+                                "connectionName": "outlook",
+                                "id": "/subscriptions/6144f08b-cd62-4457-8781-7f023c60ba00/providers/Microsoft.Web/locations/southindia/managedApis/outlook"
+                            },
+                            "twitter": {
+                                "connectionId": "[parameters('connections_twitter_1_externalid')]",
+                                "connectionName": "twitter-1",
+                                "id": "/subscriptions/6144f08b-cd62-4457-8781-7f023c60ba00/providers/Microsoft.Web/locations/southindia/managedApis/twitter"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}
